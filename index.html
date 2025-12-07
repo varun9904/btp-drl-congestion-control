@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RL vs CUBIC Network Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px 24px 40px;
+    }
+    header {
+        margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin: 0 0 4px;
+    }
+    .subtitle {
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+    .layout {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .card {
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      padding: 20px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.6);
+    }
+    
+    /* NEW: Flex container for the header row */
+    .card-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      min-height: 32px;
+    }
+    
+    .card h2 {
+      font-size: 1.05rem;
+      margin: 0; /* Changed from margin-bottom to 0 for alignment */
+      color: #38bdf8;
+    }
+
+    /* NEW: Scenario Summary Styling */
+    #scenarioSummary {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #e0f2fe;
+      text-align: right;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: #e5e7eb;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    input[type="range"] {
+      flex: 1;
+      accent-color: #38bdf8;
+    }
+    .value-pill {
+      min-width: 92px;
+      text-align: right;
+      font-size: 0.8rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e5e7eb;
+    }
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 10px 0 14px;
+    }
+    .preset-btn {
+      font-size: 0.75rem;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #e5e7eb;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover { border-color: #38bdf8; color: #e0f2fe; background: #0f172a; }
+    
+    .run-btn {
+      margin-top: 4px;
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(to right, #38bdf8, #6366f1);
+      color: white;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .run-btn:hover { opacity: 0.9; }
+    .run-btn[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+      font-size: 0.8rem;
+    }
+    .metric-card {
+      padding: 20px 20px;
+      border-radius: 14px;
+      background: #0f172a;
+      border: 1px solid #1f2937;
+    }
+    .metric-title {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+    .metric-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #fff;
+      text-align: center;
+      white-space: pre-line;
+      line-height: 1.3;
+    }
+    canvas { background: #020617; border-radius: 10px; }
+    
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 24px;
+    }
+    .control-group {
+      flex: 1;
+      min-width: 250px;
+      max-width: 350px; 
+    }
+    .actions-group {
+        flex: 1;
+        min-width: 200px;
+        max-width: 300px;
+    }
+
+    .results-row {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .progress-wrapper {
+      margin-top: 16px;
+    }
+    .progress-bar {
+      position: relative;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: #1e293b;
+      overflow: hidden;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    .progress-inner {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0%;
+      background: linear-gradient(to right, #38bdf8, #6366f1);
+      transition: width 0.2s ease-out;
+    }
+    .status {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-top: 8px;
+      min-height: 20px;
+    }
+
+    #comparison {
+      font-size: 2.2rem;
+      font-weight: 800;
+      text-align: center;
+      color: #38bdf8;
+      margin-top: 16px;
+    }
+
+    .edit-btn {
+      align-self: flex-start;
+      margin-top: 10px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #9ca3af;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .edit-btn:hover {
+      border-color: #38bdf8;
+      color: #e0f2fe;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+      min-height: 350px;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 350px;
+        width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>RL vs CUBIC Network Playground</h1>
+      <div class="subtitle">
+        Choose bandwidth, delay and loss. Each run starts NS-3 and compares your RL agent against CUBIC.
+      </div>
+    </header>
+
+    <div class="layout">
+      <section class="card">
+        <div class="card-header-row">
+            <h2>Scenario controls</h2>
+            <div id="scenarioSummary"></div>
+        </div>
+
+        <div id="controlsRow" class="controls-row">
+          <div class="control-group">
+            <label for="bandwidth">Bandwidth (Mbps)</label>
+            <div class="slider-row">
+              <input id="bandwidth" type="range" min="5" max="200" step="5" value="40" />
+              <div id="bandwidthValue" class="value-pill">40 Mbps</div>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label for="delay">Delay (ms)</label>
+            <div class="slider-row">
+              <input id="delay" type="range" min="10" max="250" step="10" value="50" />
+              <div id="delayValue" class="value-pill">50 ms</div>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label for="loss">Packet loss (%)</label>
+            <div class="slider-row">
+              <input id="loss" type="range" min="0" max="4" step="0.1" value="1" />
+              <div id="lossValue" class="value-pill">1.0 %</div>
+            </div>
+          </div>
+
+          <div class="actions-group">
+             <div class="presets">
+              <button class="preset-btn" data-bw="100" data-delay="10" data-loss="0">Fiber</button>
+              <button class="preset-btn" data-bw="40" data-delay="50" data-loss="1">Home Wi‑Fi</button>
+              <button class="preset-btn" data-bw="20" data-delay="50" data-loss="2">Public Wi‑Fi</button>
+              <button class="preset-btn" data-bw="20" data-delay="250" data-loss="0.5">Satellite</button>
+            </div>
+            <button id="runButton" class="run-btn">Run Simulation</button>
+          </div>
+        </div>
+
+        <div id="resultsRow" class="results-row">
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-title">RL agent</div>
+              <div class="metric-value" id="rlMetrics">–</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">CUBIC baseline</div>
+              <div class="metric-value" id="baselineMetrics">–</div>
+            </div>
+          </div>
+          <div class="status" id="comparison"></div>
+          <button id="editButton" class="edit-btn">← Change scenario</button>
+        </div>
+
+        <div class="progress-wrapper">
+          <div class="progress-bar" id="progressBar">
+            <div class="progress-inner" id="progressInner"></div>
+          </div>
+          <div id="status" class="status"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Time‑series</h2>
+        <div class="charts-grid">
+            <div class="chart-container">
+                 <canvas id="chartThroughput"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chartRtt"></canvas>
+            </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const bandwidthInput = document.getElementById('bandwidth');
+    const delayInput = document.getElementById('delay');
+    const lossInput = document.getElementById('loss');
+
+    const bandwidthValue = document.getElementById('bandwidthValue');
+    const delayValue = document.getElementById('delayValue');
+    const lossValue = document.getElementById('lossValue');
+
+    function refreshLabels() {
+      bandwidthValue.textContent = bandwidthInput.value + ' Mbps';
+      delayValue.textContent = delayInput.value + ' ms';
+      lossValue.textContent = Number(lossInput.value).toFixed(1) + ' %';
+    }
+
+    bandwidthInput.addEventListener('input', refreshLabels);
+    delayInput.addEventListener('input', refreshLabels);
+    lossInput.addEventListener('input', refreshLabels);
+    refreshLabels();
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bandwidthInput.value = btn.dataset.bw;
+        delayInput.value = btn.dataset.delay;
+        lossInput.value = btn.dataset.loss;
+        refreshLabels();
+      });
+    });
+
+    const rlMetricsEl = document.getElementById('rlMetrics');
+    const baselineMetricsEl = document.getElementById('baselineMetrics');
+    const statusEl = document.getElementById('status');
+    const comparisonEl = document.getElementById('comparison');
+    const scenarioSummaryEl = document.getElementById('scenarioSummary');
+    const controlsRow = document.getElementById('controlsRow');
+    const resultsRow = document.getElementById('resultsRow');
+    const progressBar = document.getElementById('progressBar');
+    const progressInner = document.getElementById('progressInner');
+    const runButton = document.getElementById('runButton');
+    const editButton = document.getElementById('editButton');
+
+    const tputCtx = document.getElementById('chartThroughput').getContext('2d');
+    const rttCtx = document.getElementById('chartRtt').getContext('2d');
+
+    function buildChart(ctx, title, yLabel) {
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'RL agent',
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56,189,248,0.15)',
+              data: [],
+              tension: 0.2,
+              pointRadius: 0,
+              borderWidth: 2,
+            },
+            {
+              label: 'CUBIC',
+              borderColor: '#f97316',
+              backgroundColor: 'rgba(249,115,22,0.15)',
+              data: [],
+              tension: 0.2,
+              pointRadius: 0,
+              borderWidth: 2,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Time (s)',
+                color: '#64748b',
+              },
+              ticks: { color: '#64748b', maxTicksLimit: 8 },
+              grid: { color: 'rgba(51,65,85,0.4)' },
+            },
+            y: {
+              title: {
+                display: true,
+                text: yLabel,
+                color: '#64748b',
+              },
+              ticks: { color: '#64748b', maxTicksLimit: 6 },
+              beginAtZero: true,
+              grid: { color: 'rgba(51,65,85,0.4)' },
+            },
+          },
+          plugins: {
+            legend: {
+              labels: { color: '#e5e7eb', usePointStyle: true, boxWidth: 8 },
+            },
+            title: {
+              display: true,
+              text: title,
+              color: '#e5e7eb',
+              font: { size: 14, weight: 'normal' },
+              padding: { bottom: 20 }
+            },
+          },
+        },
+      });
+    }
+
+    const throughputChart = buildChart(tputCtx, 'Throughput', 'Mbps');
+    const rttChart = buildChart(rttCtx, 'RTT', 'ms');
+
+    function fillSeries(targetLength, arr, mapFn) {
+      const out = new Array(targetLength).fill(null);
+      arr.forEach((point, idx) => {
+        if (idx < targetLength) out[idx] = mapFn(point) ?? null;
+      });
+      return out;
+    }
+
+    // Simple moving average function to smooth throughput
+    function movingAverage(arr, windowSize) {
+      if (windowSize <= 1) return arr.slice();
+      const out = new Array(arr.length).fill(null);
+      let sum = 0;
+      let count = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const v = arr[i];
+        if (v != null) {
+          sum += v;
+          count += 1;
+        }
+        if (i >= windowSize) {
+          const old = arr[i - windowSize];
+          if (old != null) {
+            sum -= old;
+            count -= 1;
+          }
+        }
+        if (count > 0) {
+          out[i] = sum / count;
+        }
+      }
+      return out;
+    }
+
+    let progressTimer = null;
+
+    function startProgress(durationMs = 45000) {
+      if (!progressBar || !progressInner) return;
+      const start = Date.now();
+      progressBar.style.opacity = 1;
+      progressInner.style.width = '0%';
+      if (progressTimer) clearInterval(progressTimer);
+
+      progressTimer = setInterval(() => {
+        const elapsed = Date.now() - start;
+        let frac = elapsed / durationMs;
+        if (frac > 0.98) frac = 0.98;
+        const pct = Math.max(0, Math.min(100, frac * 100));
+        progressInner.style.width = pct.toFixed(1) + '%';
+        if (statusEl) {
+          statusEl.textContent = 'Running simulations… ' + Math.round(pct) + '%';
+        }
+      }, 250);
+    }
+
+    function finishProgress() {
+      if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = null;
+      }
+      if (progressInner) {
+        progressInner.style.width = '100%';
+      }
+      if (progressBar) {
+        setTimeout(() => {
+          progressBar.style.opacity = 0;
+        }, 800);
+      }
+    }
+
+    if (editButton && controlsRow && resultsRow) {
+      editButton.addEventListener('click', () => {
+        resultsRow.style.display = 'none';
+        controlsRow.style.display = 'flex';
+        if (scenarioSummaryEl) {
+          scenarioSummaryEl.textContent = '';
+        }
+      });
+    }
+
+    async function runExperiment() {
+      if (runButton) runButton.disabled = true;
+      if (comparisonEl) comparisonEl.textContent = '';
+      if (scenarioSummaryEl) scenarioSummaryEl.textContent = ''; // Clear header summary
+      startProgress(45000);
+
+      const payload = {
+        bandwidth_mbps: Number(bandwidthInput.value),
+        delay_ms: Number(delayInput.value),
+        loss_percent: Number(lossInput.value),
+      };
+
+      try {
+        const resp = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.error || 'Request failed');
+        }
+
+        const stepMs = data.step_interval_ms || 100;
+        const rlTs = data.rl?.timeseries || [];
+        const baseTs = data.baseline?.timeseries || [];
+
+        const maxLen = Math.max(rlTs.length, baseTs.length);
+        const labels = Array.from({ length: maxLen }, (_, i) => (i * stepMs / 1000).toFixed(1));
+
+        // Raw throughput series in Mbps
+        const rlTputMbps = fillSeries(maxLen, rlTs, p => (p.tput_kbps || 0) / 1000.0);
+        const baseTputMbps = fillSeries(maxLen, baseTs, p => (p.tput_kbps || 0) / 1000.0);
+
+        // Apply moving average with window size 5 (tune as needed)
+        const windowSize = 5;
+        const rlTputSmooth = movingAverage(rlTputMbps, windowSize);
+        const baseTputSmooth = movingAverage(baseTputMbps, windowSize);
+
+        throughputChart.data.labels = labels;
+        throughputChart.data.datasets[0].data = rlTputSmooth;
+        throughputChart.data.datasets[1].data = baseTputSmooth;
+        throughputChart.update();
+
+        // RTT stays unsmoothed
+        rttChart.data.labels = labels;
+        rttChart.data.datasets[0].data = fillSeries(maxLen, rlTs, p => p.rtt_ms || 0);
+        rttChart.data.datasets[1].data = fillSeries(maxLen, baseTs, p => p.rtt_ms || 0);
+        rttChart.update();
+
+        const rl = data.rl?.summary || {};
+        const bs = data.baseline?.summary || {};
+        const s = data.scenario || {};
+
+        const lossRateValue = typeof s.loss_percent === 'number' && Number.isFinite(s.loss_percent)
+          ? s.loss_percent
+          : null;
+
+        rlMetricsEl.textContent =
+          `Throughput ${rl.throughput_mbps?.toFixed?.(2) || '–'} Mbps` +
+          `\nRTT ${rl.avg_rtt_ms?.toFixed?.(1) || '–'} ms` +
+          `\nloss ${Number.isFinite(Number(rl.total_loss)) ? rl.total_loss : '–'} pkts)`;
+
+        baselineMetricsEl.textContent =
+          `Throughput ${bs.throughput_mbps?.toFixed?.(2) || '–'} Mbps` +
+          `\nRTT ${bs.avg_rtt_ms?.toFixed?.(1) || '–'} ms` +
+          `\nloss ${Number.isFinite(Number(bs.total_loss)) ? bs.total_loss : '–'} pkts)`;
+
+        if (controlsRow && resultsRow) {
+          controlsRow.style.display = 'none';
+          resultsRow.style.display = 'flex';
+        }
+
+        if (comparisonEl) {
+          const rlThr = Number(rl.throughput_mbps);
+          const bsThr = Number(bs.throughput_mbps);
+          const rlRtt = Number(rl.avg_rtt_ms);
+          const bsRtt = Number(bs.avg_rtt_ms);
+
+          let comparisonText = '';
+
+          if (Number.isFinite(rlThr) && Number.isFinite(bsThr) && bsThr > 0) {
+            const diff = ((rlThr - bsThr) / bsThr) * 100;
+            const sign = diff >= 0 ? '+' : '';
+            comparisonText += `Throughput ${sign}${diff.toFixed(1)}% vs CUBIC`;
+          }
+
+          if (Number.isFinite(rlRtt) && Number.isFinite(bsRtt) && bsRtt > 0) {
+            const diff = ((rlRtt - bsRtt) / bsRtt) * 100;
+            if (comparisonText) comparisonText += ' · ';
+            if (diff < 0) {
+              comparisonText += `RTT ${(-diff).toFixed(1)}% lower`;
+            } else if (diff > 0) {
+              comparisonText += `RTT ${diff.toFixed(1)}% higher`;
+            }
+          }
+
+          comparisonEl.textContent = comparisonText;
+        }
+
+        // UPDATE SCENARIO HEADER
+        if (scenarioSummaryEl) {
+          // Cleaner bullet format for the header
+          scenarioSummaryEl.textContent =
+            `${s.bandwidth_mbps?.toFixed?.(0) || '?'} Mbps  •  ` +
+            `${s.delay_ms?.toFixed?.(0) || '?'} ms Delay  •  ` +
+            `${s.loss_percent?.toFixed?.(1) || '?'}% Loss`;
+        }
+        
+        if (statusEl) {
+          statusEl.textContent = 'Done.';
+        }
+      } catch (err) {
+        console.error(err);
+        if (statusEl) {
+          statusEl.textContent = 'Error: ' + (err.message || String(err));
+        }
+      } finally {
+        finishProgress();
+        if (runButton) runButton.disabled = false;
+      }
+    }
+
+    runButton.addEventListener('click', runExperiment);
+  </script>
+</body>
+</html>
